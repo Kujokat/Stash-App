@@ -639,15 +639,67 @@ class StashApp {
     this.renderFolders();
   }
 
-  renderFolders() {
-    const container = document.getElementById('folders-list');
-    container.innerHTML = this.folders.map(folder => `
-      <a href="#" class="nav-item" data-folder="${folder.id}">
-        <span style="color: ${folder.color}">📁</span>
-        ${this.escapeHtml(folder.name)}
-      </a>
-    `).join('');
+renderFolders() {
+  const container = document.getElementById('folders-list');
+  container.innerHTML = this.folders.map(folder => `
+    <a href="#" class="nav-item" data-folder="${folder.id}">
+      <span style="color: ${folder.color}">📁</span>
+      ${this.escapeHtml(folder.name)}
+    </a>
+  `).join('');
+  
+  // Add click handlers for folders
+  container.querySelectorAll('.nav-item[data-folder]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const folderId = item.dataset.folder;
+      this.filterByFolder(folderId);
+    });
+  });
+}
+
+  async filterByFolder(folderId) {
+  // Update nav active state
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  document.querySelector(`[data-folder="${folderId}"]`)?.classList.add('active');
+  
+  // Find folder name for title
+  const folder = this.folders.find(f => f.id === folderId);
+  document.getElementById('view-title').textContent = folder?.name || 'Folder';
+  
+  // Load saves filtered by folder
+  const container = document.getElementById('saves-container');
+  const loading = document.getElementById('loading');
+  const empty = document.getElementById('empty-state');
+  
+  loading.classList.remove('hidden');
+  container.innerHTML = '';
+  
+  const { data, error } = await this.supabase
+    .from('saves')
+    .select('*')
+    .eq('folder_id', folderId)
+    .order('created_at', { ascending: false });
+  
+  loading.classList.add('hidden');
+  
+  if (error) {
+    console.error('Error loading folder saves:', error);
+    return;
   }
+  
+  this.saves = data || [];
+  
+  if (this.saves.length === 0) {
+    empty.classList.remove('hidden');
+    document.querySelector('.empty-state h3').textContent = 'No saves in this folder';
+  } else {
+    empty.classList.add('hidden');
+    this.renderSaves();
+  }
+}
 
   setView(view) {
     this.currentView = view;
